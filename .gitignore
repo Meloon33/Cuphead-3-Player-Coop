@@ -1,0 +1,14 @@
+# Binaries and build artifacts
+bin/
+obj/
+*.user
+*.suo
+*.pdb
+
+# Local test outputs and game saves
+*.sav
+*.sav.backup
+*.log
+
+# Release zip is uploaded to GitHub Releases, keep repo lean
+release/*.zip
