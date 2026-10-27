@@ -18,6 +18,7 @@ namespace Cuphead3PCoop
         private static readonly HashSet<PlayerDeathEffect> _activeGhosts = new HashSet<PlayerDeathEffect>();
         private static readonly Dictionary<PlayerDeathEffect, float> _lostTimers = new Dictionary<PlayerDeathEffect, float>();
         private static bool _isRestarting = false;
+        public static bool IsRestarting => _isRestarting;
         private static bool _autoRetryPending = false;
         private static float _autoRetryTime = 0f;
 
@@ -188,18 +189,23 @@ namespace Cuphead3PCoop
                     continue;
                 }
 
-                // Vanilla MDHR out-of-frame check: padding (1000f, 10f)
-                // When ContainsPoint returns false, ghost has floated past top of camera viewport!
-                bool inFrame = cam.ContainsPoint((Vector2)ghost.transform.position, new Vector2(1000f, 10f));
+                // Ghosts strictly float upward (+Y).
+                // A ghost is ONLY lost when it floats past the TOP edge of the camera viewport.
+                // Checking all 4 borders caused false restarts when camera panned upward (leaving ghost below camera).
+                float cameraTop = (cam.camera != null)
+                    ? (cam.transform.position.y + cam.camera.orthographicSize)
+                    : (cam.Top);
+                float topThreshold = cameraTop + 15f;
+                bool floatedOffTop = ghost.transform.position.y > topThreshold;
 
-                if (!inFrame)
+                if (floatedOffTop)
                 {
                     float firstLostTime;
                     if (!_lostTimers.TryGetValue(ghost, out firstLostTime))
                     {
                         _lostTimers[ghost] = now;
                         string pName = GetPlayerDisplayName(GetPlayerId(ghost));
-                        Plugin.Log.LogInfo("[3P-Coop] Hardcore: Ghost for " + pName + " floated off-screen. Grace timer started (" + grace + "s)...");
+                        Plugin.Log.LogInfo("[3P-Coop] Hardcore: Ghost for " + pName + " floated past top of screen (Y=" + ghost.transform.position.y + " > " + topThreshold + "). Grace timer started (" + grace + "s)...");
                     }
                     else if (now - firstLostTime >= grace)
                     {
@@ -209,7 +215,7 @@ namespace Cuphead3PCoop
                 }
                 else
                 {
-                    // Ghost is still in bounds
+                    // Ghost is still in bounds or floating up from below
                     if (_lostTimers.ContainsKey(ghost))
                     {
                         _lostTimers.Remove(ghost);
